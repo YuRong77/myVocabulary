@@ -8,6 +8,7 @@ cd dist
 
 # 初始化 git 並提交更改
 git init
+git branch -M main 
 git add -A
 git commit -m 'deploy'
 

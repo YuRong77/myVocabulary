@@ -1,0 +1,2296 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>背單字應用</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.3.4/vue.global.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <link rel="manifest" href="manifest.json" />
+    <script>
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker
+          .register("/sw.js")
+          .then(() => console.log("Service Worker 註冊成功"))
+          .catch((err) => console.log("Service Worker 註冊失敗:", err));
+      }
+    </script>
+    <style>
+      :root {
+        /* Material Design 橘色暖色調色彩系統 */
+        --md-primary-50: #fff3e0;
+        --md-primary-100: #ffe0b2;
+        --md-primary-200: #ffcc80;
+        --md-primary-300: #ffb74d;
+        --md-primary-400: #ffa726;
+        --md-primary-500: #ff9800; /* Primary color */
+        --md-primary-600: #fb8c00;
+        --md-primary-700: #f57c00;
+        --md-primary-800: #ef6c00;
+        --md-primary-900: #e65100;
+
+        /* 輔助色 */
+        --md-secondary-50: #fce4ec;
+        --md-secondary-500: #ff7043;
+        --md-secondary-700: #d84315;
+
+        /* 語義化顏色 */
+        --md-success: #4caf50;
+        --md-warning: #ff9800;
+        --md-error: #f44336;
+        --md-info: #2196f3;
+
+        /* 中性色 */
+        --md-surface: #ffffff;
+        --md-surface-variant: #f5f5f5;
+        --md-on-surface: #212121;
+        --md-on-surface-variant: #757575;
+        --md-outline: #e0e0e0;
+        --md-outline-variant: #f5f5f5;
+
+        /* 陰影 */
+        --md-shadow-1: 0 1px 3px rgba(0, 0, 0, 0.12),
+          0 1px 2px rgba(0, 0, 0, 0.24);
+        --md-shadow-2: 0 3px 6px rgba(0, 0, 0, 0.16),
+          0 3px 6px rgba(0, 0, 0, 0.23);
+        --md-shadow-3: 0 10px 20px rgba(0, 0, 0, 0.19),
+          0 6px 6px rgba(0, 0, 0, 0.23);
+        --md-shadow-4: 0 14px 28px rgba(0, 0, 0, 0.25),
+          0 10px 10px rgba(0, 0, 0, 0.22);
+
+        /* 字體大小 Material Design Type Scale */
+        --md-headline-1: 96px;
+        --md-headline-2: 60px;
+        --md-headline-3: 48px;
+        --md-headline-4: 34px;
+        --md-headline-5: 24px;
+        --md-headline-6: 20px;
+        --md-subtitle-1: 16px;
+        --md-subtitle-2: 14px;
+        --md-body-1: 16px;
+        --md-body-2: 14px;
+        --md-button: 14px;
+        --md-caption: 12px;
+        --md-overline: 10px;
+
+        /* 間距系統 (8dp 基準) */
+        --md-spacing-1: 4px;
+        --md-spacing-2: 8px;
+        --md-spacing-3: 12px;
+        --md-spacing-4: 16px;
+        --md-spacing-5: 20px;
+        --md-spacing-6: 24px;
+        --md-spacing-8: 32px;
+        --md-spacing-10: 40px;
+        --md-spacing-12: 48px;
+        --md-spacing-16: 64px;
+
+        /* Border radius */
+        --md-radius-xs: 4px;
+        --md-radius-sm: 8px;
+        --md-radius-md: 12px;
+        --md-radius-lg: 16px;
+        --md-radius-xl: 20px;
+        --md-radius-full: 28px;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Roboto", -apple-system, BlinkMacSystemFont, "Segoe UI",
+          "Helvetica Neue", Arial, sans-serif;
+        background: linear-gradient(
+          135deg,
+          var(--md-primary-100) 0%,
+          var(--md-primary-200) 100%
+        );
+        min-height: 100vh;
+        font-size: var(--md-body-1);
+        line-height: 1.5;
+        color: var(--md-on-surface);
+      }
+
+      .app {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: var(--md-spacing-6);
+      }
+
+      .header {
+        text-align: center;
+        color: var(--md-primary-800);
+        margin-bottom: var(--md-spacing-8);
+      }
+
+      .header h1 {
+        font-size: var(--md-headline-4);
+        font-weight: 400;
+        margin-bottom: var(--md-spacing-2);
+        letter-spacing: -0.5px;
+      }
+
+      .header p {
+        font-size: var(--md-subtitle-1);
+        color: var(--md-primary-700);
+        font-weight: 400;
+      }
+
+      /* 統計卡片 */
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: var(--md-spacing-4);
+        margin-bottom: var(--md-spacing-8);
+      }
+
+      .stat-card {
+        background: var(--md-surface);
+        padding: var(--md-spacing-6);
+        border-radius: var(--md-radius-lg);
+        text-align: center;
+        border: 1px solid var(--md-outline-variant);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .stat-card:hover {
+        transform: translateY(-2px);
+      }
+
+      .stat-number {
+        font-size: var(--md-headline-5);
+        font-weight: 500;
+        margin-bottom: var(--md-spacing-1);
+        color: var(--md-primary-600);
+      }
+
+      .stat-label {
+        font-size: var(--md-body-2);
+        color: var(--md-on-surface-variant);
+        font-weight: 400;
+      }
+
+      /* 導航標籤 */
+      .nav-tabs {
+        display: flex;
+        background: var(--md-surface);
+        border-radius: var(--md-radius-full);
+        padding: var(--md-spacing-1);
+        margin-bottom: var(--md-spacing-8);
+        border: 1px solid var(--md-outline-variant);
+      }
+
+      .nav-tab {
+        flex: 1;
+        padding: var(--md-spacing-3) var(--md-spacing-5);
+        border: none;
+        background: transparent;
+        color: var(--md-on-surface-variant);
+        cursor: pointer;
+        border-radius: var(--md-radius-full);
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        font-weight: 500;
+        font-size: var(--md-button);
+        text-transform: none;
+        letter-spacing: 0.1px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .nav-tab::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: var(--md-primary-500);
+        opacity: 0;
+        transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .nav-tab:hover::before {
+        opacity: 0.08;
+      }
+
+      .nav-tab.active {
+        background: var(--md-primary-500);
+        color: white;
+        box-shadow: var(--md-shadow-1);
+      }
+
+      .nav-tab.active::before {
+        display: none;
+      }
+
+      /* 內容區域 */
+      .content-section {
+        background: var(--md-surface);
+        border-radius: var(--md-radius-xl);
+        padding: var(--md-spacing-8);
+        border: 1px solid var(--md-outline-variant);
+      }
+
+      .content-section h2 {
+        font-size: var(--md-headline-6);
+        font-weight: 500;
+        margin-bottom: var(--md-spacing-6);
+        color: var(--md-primary-700);
+      }
+
+      /* 表單樣式 */
+      .form-group {
+        margin-bottom: var(--md-spacing-6);
+      }
+
+      .form-group label {
+        display: block;
+        margin-bottom: var(--md-spacing-2);
+        font-weight: 500;
+        color: var(--md-on-surface);
+        font-size: var(--md-body-2);
+      }
+
+      .form-input,
+      .form-textarea,
+      .form-select {
+        width: 100%;
+        padding: var(--md-spacing-4);
+        border: 2px solid var(--md-outline);
+        border-radius: var(--md-radius-sm);
+        font-size: var(--md-body-1);
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        background: var(--md-surface);
+        color: var(--md-on-surface);
+      }
+
+      .form-input:focus,
+      .form-textarea:focus,
+      .form-select:focus {
+        outline: none;
+        border-color: var(--md-primary-500);
+        box-shadow: 0 0 0 3px rgba(255, 152, 0, 0.12);
+      }
+
+      .form-textarea {
+        resize: vertical;
+        min-height: 100px;
+        font-family: inherit;
+      }
+
+      /* 標籤輸入 */
+      .tags-input {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--md-spacing-2);
+        padding: var(--md-spacing-3);
+        border: 2px solid var(--md-outline);
+        border-radius: var(--md-radius-sm);
+        min-height: 56px;
+        align-items: center;
+        background: var(--md-surface);
+      }
+
+      .tags-input:focus-within {
+        border-color: var(--md-primary-500);
+        box-shadow: 0 0 0 3px rgba(255, 152, 0, 0.12);
+      }
+
+      .tag {
+        background: var(--md-primary-100);
+        color: var(--md-primary-800);
+        padding: var(--md-spacing-1) var(--md-spacing-3);
+        border-radius: var(--md-radius-full);
+        font-size: var(--md-caption);
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: var(--md-spacing-1);
+        border: 1px solid var(--md-primary-200);
+      }
+
+      .tag-remove {
+        background: none;
+        border: none;
+        color: var(--md-primary-700);
+        cursor: pointer;
+        font-size: 14px;
+        padding: 0;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .tag-remove:hover {
+        background: var(--md-primary-200);
+      }
+
+      .tag-input {
+        border: none;
+        outline: none;
+        padding: var(--md-spacing-2);
+        flex: 1;
+        min-width: 120px;
+        font-size: var(--md-body-1);
+        background: transparent;
+      }
+
+      /* 按鈕系統 */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: var(--md-spacing-2);
+        padding: var(--md-spacing-3) var(--md-spacing-6);
+        border: none;
+        border-radius: var(--md-radius-full);
+        font-size: var(--md-button);
+        font-weight: 500;
+        font-family: inherit;
+        cursor: pointer;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        text-decoration: none;
+        position: relative;
+        overflow: hidden;
+        min-height: 40px;
+        letter-spacing: 0.1px;
+        text-transform: none;
+      }
+
+      .btn:disabled {
+        opacity: 0.38;
+        cursor: not-allowed;
+      }
+
+      .btn::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: currentColor;
+        opacity: 0;
+        transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .btn:hover::before {
+        opacity: 0.08;
+      }
+
+      .btn:active::before {
+        opacity: 0.12;
+      }
+
+      /* 主要按鈕 */
+      .btn-primary {
+        background: var(--md-primary-500);
+        color: white;
+        box-shadow: var(--md-shadow-1);
+      }
+
+      .btn-primary:hover {
+        box-shadow: var(--md-shadow-2);
+        transform: translateY(-1px);
+      }
+
+      /* 次要按鈕 */
+      .btn-secondary {
+        background: var(--md-surface-variant);
+        color: var(--md-on-surface-variant);
+        border: 1px solid var(--md-outline);
+      }
+
+      /* 小按鈕 (用於卡片操作) */
+      .btn-sm {
+        padding: var(--md-spacing-2) var(--md-spacing-4);
+        font-size: var(--md-caption);
+        min-height: 32px;
+        border-radius: var(--md-radius-lg);
+      }
+
+      /* 語義化按鈕顏色 */
+      .btn-success {
+        background: var(--md-success);
+        color: white;
+      }
+
+      .btn-warning {
+        background: var(--md-warning);
+        color: white;
+      }
+
+      .btn-danger {
+        background: var(--md-error);
+        color: white;
+      }
+
+      .btn-info {
+        background: var(--md-info);
+        color: white;
+      }
+
+      /* 浮動操作按鈕樣式 */
+      .btn-fab {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        box-shadow: var(--md-shadow-2);
+      }
+
+      .btn-fab:hover {
+        box-shadow: var(--md-shadow-3);
+      }
+
+      /* 卡片列表 */
+      .card-list {
+        display: grid;
+        gap: var(--md-spacing-3); /* 減少間距 */
+        margin-top: var(--md-spacing-6);
+      }
+
+      .card-item {
+        background: var(--md-surface);
+        border-radius: 0 16px 16px 0;
+        padding: var(--md-spacing-4); /* 減少內邊距 */
+        border: 1px solid var(--md-outline-variant);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .card-item::before {
+        content: "";
+        position: absolute;
+        left: -1px;
+        top: -1px;
+        bottom: -1px;
+        width: 3px;
+        background: var(--md-primary-400);
+      }
+
+      /* 卡片頭部 - 單字和語音按鈕 */
+      .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: var(--md-spacing-2);
+      }
+
+      .card-word {
+        font-size: var(--md-subtitle-1); /* 稍微縮小字體 */
+        font-weight: 500;
+        color: var(--md-on-surface);
+        flex: 1;
+        margin: 0; /* 移除原有的 margin */
+      }
+
+      .card-translation {
+        color: var(--md-on-surface-variant);
+        font-size: var(--md-body-2); /* 稍微縮小字體 */
+        margin: 0; /* 移除原有的 margin */
+      }
+
+      /* 例句區域 - 更緊湊的設計 */
+      .card-examples {
+        margin: 0; /* 移除原有的 margin */
+      }
+
+      .card-example {
+        background: var(--md-surface-variant);
+        padding: var(--md-spacing-2) var(--md-spacing-3); /* 減少內邊距 */
+        border-radius: var(--md-radius-sm);
+        margin-bottom: var(--md-spacing-1); /* 減少間距 */
+        font-style: italic;
+        font-size: var(--md-caption); /* 縮小字體 */
+        color: var(--md-on-surface-variant);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: var(--md-spacing-2);
+      }
+
+      .card-example:last-child {
+        margin-bottom: 0;
+      }
+
+      /* 標籤區域 */
+      .card-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--md-spacing-1); /* 減少間距 */
+        margin: 4px 0;
+      }
+
+      .card-tag {
+        background: var(--md-primary-50);
+        color: var(--md-primary-700);
+        padding: 2px var(--md-spacing-2); /* 減少垂直內邊距 */
+        border-radius: var(--md-radius-xs);
+        font-size: 10px; /* 縮小字體 */
+        font-weight: 500;
+        border: 1px solid var(--md-primary-100);
+      }
+
+      /* 操作按鈕區域 - 重新設計 */
+      .card-actions {
+        display: flex;
+        gap: var(--md-spacing-1); /* 減少間距 */
+        justify-content: flex-end;
+        margin-top: auto; /* 推到底部 */
+      }
+
+      .card-actions .btn {
+        padding: var(--md-spacing-1) var(--md-spacing-3); /* 縮小按鈕 */
+        font-size: var(--md-caption); /* 縮小字體 */
+        min-height: 28px; /* 減少高度 */
+        font-weight: 400; /* 減少字重 */
+      }
+
+      /* 搜尋和過濾器 */
+      .search-filters {
+        display: grid;
+        grid-template-columns: 2fr 1fr 1fr;
+        gap: var(--md-spacing-4);
+        margin-bottom: var(--md-spacing-6);
+        align-items: end;
+      }
+
+      /* 分頁 */
+      .pagination {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: var(--md-spacing-2);
+        margin-top: var(--md-spacing-8);
+        flex-wrap: wrap;
+      }
+
+      .pagination button {
+        padding: var(--md-spacing-2) var(--md-spacing-4);
+        border: 1px solid var(--md-outline);
+        background: var(--md-surface);
+        border-radius: var(--md-radius-sm);
+        cursor: pointer;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        font-size: var(--md-body-2);
+        color: var(--md-on-surface);
+      }
+
+      .pagination button:hover:not(:disabled) {
+        background: var(--md-surface-variant);
+        border-color: var(--md-primary-300);
+      }
+
+      .pagination button:disabled {
+        opacity: 0.38;
+        cursor: not-allowed;
+      }
+
+      .pagination .current-page {
+        background: var(--md-primary-500);
+        color: white;
+        border-color: var(--md-primary-500);
+      }
+
+      .pagination span {
+        color: var(--md-on-surface-variant);
+        font-size: var(--md-body-2);
+        padding: 0 var(--md-spacing-2);
+      }
+
+      /* 學習卡片 */
+      .study-card {
+        background: var(--md-surface);
+        border-radius: var(--md-radius-xl);
+        padding: var(--md-spacing-10);
+        text-align: center;
+        box-shadow: var(--md-shadow-3);
+        max-width: 600px;
+        margin: 0 auto;
+        border: 1px solid var(--md-outline-variant);
+      }
+
+      .study-word {
+        font-size: var(--md-headline-3);
+        font-weight: 400;
+        color: var(--md-on-surface);
+        margin-bottom: var(--md-spacing-6);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: var(--md-spacing-4);
+        flex-wrap: wrap;
+      }
+
+      .study-translation {
+        font-size: var(--md-headline-6);
+        color: var(--md-on-surface-variant);
+        margin-bottom: var(--md-spacing-8);
+        font-weight: 400;
+      }
+
+      .study-examples {
+        text-align: left;
+        margin-bottom: var(--md-spacing-8);
+      }
+
+      .study-example {
+        background: var(--md-surface-variant);
+        padding: var(--md-spacing-4);
+        border-radius: var(--md-radius-md);
+        margin-bottom: var(--md-spacing-3);
+        font-style: italic;
+        font-size: var(--md-body-1);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .study-actions {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: var(--md-spacing-4);
+      }
+
+      .study-btn {
+        padding: var(--md-spacing-4) var(--md-spacing-6);
+        border: none;
+        border-radius: var(--md-radius-lg);
+        font-size: var(--md-body-1);
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        min-height: 48px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .study-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: var(--md-shadow-2);
+      }
+
+      .btn-again {
+        background: #ffebee;
+        color: #c62828;
+        border: 1px solid #ffcdd2;
+      }
+
+      .btn-hard {
+        background: #fff3e0;
+        color: #ef6c00;
+        border: 1px solid #ffe0b2;
+      }
+
+      .btn-good {
+        background: #e8f5e8;
+        color: #2e7d32;
+        border: 1px solid #c8e6c9;
+      }
+
+      .btn-easy {
+        background: #e3f2fd;
+        color: #1976d2;
+        border: 1px solid #bbdefb;
+      }
+
+      /* 切換開關 */
+      .show-translation-toggle {
+        margin-bottom: var(--md-spacing-6);
+        text-align: center;
+      }
+
+      .toggle-switch {
+        position: relative;
+        display: inline-block;
+        width: 52px;
+        height: 32px;
+      }
+
+      .toggle-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+
+      .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: var(--md-outline);
+        transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        border-radius: 16px;
+      }
+
+      .slider:before {
+        position: absolute;
+        content: "";
+        height: 24px;
+        width: 24px;
+        left: 4px;
+        bottom: 4px;
+        background-color: white;
+        transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        border-radius: 50%;
+        box-shadow: var(--md-shadow-1);
+      }
+
+      input:checked + .slider {
+        background-color: var(--md-primary-500);
+      }
+
+      input:checked + .slider:before {
+        transform: translateX(20px);
+      }
+
+      /* 語音控制 */
+      .voice-controls {
+        display: flex;
+        align-items: center;
+        gap: var(--md-spacing-4);
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+
+      .voice-controls label {
+        font-weight: 500;
+        color: var(--md-on-surface);
+        font-size: var(--md-body-2);
+      }
+
+      .speed-control {
+        display: flex;
+        align-items: center;
+        gap: var(--md-spacing-2);
+        background: var(--md-surface-variant);
+        padding: var(--md-spacing-2) var(--md-spacing-3);
+        border-radius: var(--md-radius-full);
+      }
+
+      .speed-slider {
+        width: 80px;
+        height: 4px;
+        border-radius: 2px;
+        background: var(--md-outline);
+        outline: none;
+        -webkit-appearance: none;
+      }
+
+      .speed-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: var(--md-primary-500);
+        cursor: pointer;
+      }
+
+      .speed-display {
+        font-size: var(--md-caption);
+        color: var(--md-on-surface-variant);
+        min-width: 35px;
+        text-align: center;
+        font-weight: 500;
+      }
+
+      .voice-btn {
+        padding: var(--md-spacing-2) var(--md-spacing-3);
+        border: 1px solid var(--md-outline);
+        background: var(--md-surface);
+        color: var(--md-on-surface);
+        border-radius: var(--md-radius-lg);
+        cursor: pointer;
+        font-size: var(--md-caption);
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        min-height: 32px;
+      }
+
+      .voice-btn:hover:not(:disabled) {
+        background: var(--md-surface-variant);
+        border-color: var(--md-primary-300);
+      }
+
+      .voice-btn:disabled {
+        opacity: 0.38;
+        cursor: not-allowed;
+      }
+
+      .voice-btn.speaking {
+        background: var(--md-success);
+        color: white;
+        border-color: var(--md-success);
+      }
+
+      .voice-select {
+        padding: var(--md-spacing-2) var(--md-spacing-3);
+        border: 1px solid var(--md-outline);
+        border-radius: var(--md-radius-sm);
+        font-size: var(--md-body-2);
+        background: var(--md-surface);
+        color: var(--md-on-surface);
+      }
+
+      .voice-controls-inline {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--md-spacing-1);
+        flex-shrink: 0;
+      }
+
+      .voice-btn-sm {
+        padding: var(--md-spacing-1);
+        font-size: 10px;
+        min-height: 20px; /* 進一步縮小 */
+        border-radius: var(--md-radius-xs);
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      /* 檔案上傳 */
+      .file-input {
+        display: none;
+      }
+
+      .file-label {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--md-spacing-2);
+        padding: var(--md-spacing-4) var(--md-spacing-6);
+        background: var(--md-success);
+        color: white;
+        border-radius: var(--md-radius-full);
+        cursor: pointer;
+        font-weight: 500;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        font-size: var(--md-button);
+        box-shadow: var(--md-shadow-1);
+      }
+
+      .file-label:hover {
+        box-shadow: var(--md-shadow-2);
+        transform: translateY(-1px);
+      }
+
+      /* 空狀態 */
+      .no-cards {
+        text-align: center;
+        padding: var(--md-spacing-12);
+        color: var(--md-on-surface-variant);
+      }
+
+      .no-cards h3 {
+        margin-bottom: var(--md-spacing-3);
+        font-size: var(--md-headline-6);
+        font-weight: 400;
+        color: var(--md-on-surface);
+      }
+
+      .no-cards p {
+        font-size: var(--md-body-1);
+        line-height: 1.6;
+      }
+
+      /* 響應式設計 */
+      @media (max-width: 1200px) {
+        .app {
+          max-width: 100%;
+        }
+
+        .search-filters {
+          grid-template-columns: 1fr;
+          gap: var(--md-spacing-3);
+        }
+      }
+
+      @media (max-width: 960px) {
+        .stats {
+          grid-template-columns: repeat(2, 1fr);
+        }
+
+        .nav-tabs {
+          flex-direction: column;
+          gap: var(--md-spacing-1);
+        }
+
+        .nav-tab {
+          border-radius: var(--md-radius-md);
+        }
+
+        .study-actions {
+          grid-template-columns: 1fr;
+          gap: var(--md-spacing-3);
+        }
+
+        .voice-controls {
+          flex-direction: column;
+          align-items: stretch;
+          gap: var(--md-spacing-3);
+        }
+
+        .speed-control {
+          justify-content: space-between;
+        }
+      }
+
+      @media (max-width: 768px) {
+        .app {
+          padding: var(--md-spacing-4);
+        }
+
+        .header h1 {
+          font-size: var(--md-headline-5);
+        }
+
+        .content-section {
+          padding: var(--md-spacing-6);
+        }
+
+        .stats {
+          grid-template-columns: 1fr;
+        }
+
+        .study-word {
+          font-size: var(--md-headline-4);
+          flex-direction: column;
+          gap: var(--md-spacing-2);
+        }
+
+        .study-translation {
+          font-size: var(--md-headline-6);
+        }
+
+        .card-header {
+          flex-direction: row; /* 保持橫向排列 */
+          align-items: center;
+        }
+
+        .voice-btn-sm {
+          min-height: 24px !important;
+        }
+
+        .pagination {
+          flex-direction: column;
+          gap: var(--md-spacing-2);
+        }
+
+        .pagination button,
+        .pagination span {
+          width: 100%;
+          text-align: center;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .app {
+          padding: var(--md-spacing-3);
+        }
+
+        .header h1 {
+          font-size: var(--md-headline-6);
+        }
+
+        .content-section {
+          padding: var(--md-spacing-4);
+          border-radius: var(--md-radius-md);
+        }
+
+        .study-card {
+          padding: var(--md-spacing-6);
+        }
+
+        .study-word {
+          font-size: var(--md-headline-5);
+        }
+
+        .study-translation {
+          font-size: var(--md-subtitle-1);
+        }
+
+        .study-btn {
+          padding: var(--md-spacing-3) var(--md-spacing-4);
+          font-size: var(--md-body-2);
+        }
+
+        .card-list {
+          gap: var(--md-spacing-2);
+        }
+
+        /* .card-word {
+          font-size: var(--md-body-2);
+        } */
+
+        /* .card-translation {
+          font-size: var(--md-caption);
+        } */
+
+        /* .card-example {
+          font-size: 10px;
+          padding: var(--md-spacing-1);
+        } */
+
+        /* .card-actions .btn {
+          padding: 2px var(--md-spacing-1);
+          font-size: 9px;
+          min-height: 20px;
+          border-radius: var(--md-radius-xs);
+        } */
+
+        .voice-controls {
+          gap: var(--md-spacing-2);
+        }
+
+        .voice-btn {
+          padding: var(--md-spacing-2);
+          font-size: var(--md-caption);
+        }
+
+        .speed-control {
+          flex-direction: column;
+          gap: var(--md-spacing-2);
+        }
+
+        .speed-slider {
+          width: 100%;
+        }
+
+        .form-group {
+          margin-bottom: var(--md-spacing-4);
+        }
+
+        /* .btn {
+          width: 100%;
+          margin-bottom: var(--md-spacing-2);
+        } */
+
+        .btn:last-child {
+          margin-bottom: 0;
+        }
+      }
+
+      /* 觸控優化 */
+      @media (hover: none) and (pointer: coarse) {
+        .btn,
+        .nav-tab,
+        .tag-remove,
+        .voice-btn {
+          min-height: 44px;
+        }
+
+        .form-input,
+        .form-textarea,
+        .form-select {
+          min-height: 44px;
+          font-size: 16px; /* 防止iOS縮放 */
+        }
+
+        .study-btn {
+          min-height: 56px;
+        }
+
+        .card-item:hover {
+          transform: none; /* 移除hover效果 */
+          box-shadow: var(--md-shadow-1);
+        }
+
+        .btn:hover::before,
+        .nav-tab:hover::before {
+          opacity: 0;
+        }
+      }
+
+      /* 橫向模式優化 */
+      @media (max-width: 896px) and (orientation: landscape) {
+        .study-card {
+          padding: var(--md-spacing-4);
+        }
+
+        .study-word {
+          font-size: var(--md-headline-6);
+          margin-bottom: var(--md-spacing-3);
+        }
+
+        .study-translation {
+          font-size: var(--md-subtitle-1);
+          margin-bottom: var(--md-spacing-4);
+        }
+
+        .study-actions {
+          grid-template-columns: repeat(4, 1fr);
+          gap: var(--md-spacing-2);
+        }
+
+        .study-btn {
+          padding: var(--md-spacing-2) var(--md-spacing-3);
+          font-size: var(--md-body-2);
+        }
+
+        .stats {
+          grid-template-columns: repeat(4, 1fr);
+        }
+
+        .stat-card {
+          padding: var(--md-spacing-3);
+        }
+
+        .stat-number {
+          font-size: var(--md-headline-6);
+        }
+      }
+
+      /* 大螢幕優化 */
+      @media (min-width: 1440px) {
+        .app {
+          max-width: 1400px;
+        }
+
+        .stats {
+          grid-template-columns: repeat(4, 1fr);
+        }
+
+        .search-filters {
+          grid-template-columns: 3fr 1fr 1fr;
+          gap: var(--md-spacing-6);
+        }
+
+        .card-list {
+          grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+        }
+
+        .content-section {
+          padding: var(--md-spacing-10);
+        }
+      }
+
+      /* 高對比度模式支援 */
+      @media (prefers-contrast: high) {
+        .btn,
+        .nav-tab,
+        .card-item,
+        .form-input,
+        .form-textarea,
+        .form-select {
+          border-width: 2px;
+        }
+
+        .study-btn {
+          border-width: 2px;
+          font-weight: 600;
+        }
+      }
+
+      /* 減少動畫模式 */
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+        }
+
+        .card-item:hover,
+        .btn:hover {
+          transform: none;
+        }
+      }
+
+      /* 暗色模式支援 */
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --md-surface: #121212;
+          --md-surface-variant: #1e1e1e;
+          --md-on-surface: #e0e0e0;
+          --md-on-surface-variant: #a0a0a0;
+          --md-outline: #333333;
+          --md-outline-variant: #2a2a2a;
+        }
+
+        body {
+          background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
+        }
+
+        .form-input,
+        .form-textarea,
+        .form-select {
+          background: var(--md-surface-variant);
+          color: var(--md-on-surface);
+        }
+
+        .study-example,
+        .card-example {
+          background: var(--md-surface-variant);
+          color: var(--md-on-surface-variant);
+        }
+
+        .tag {
+          background: rgba(255, 152, 0, 0.2);
+          color: var(--md-primary-200);
+          border-color: rgba(255, 152, 0, 0.3);
+        }
+      }
+
+      /* 打印樣式 */
+      @media print {
+        .nav-tabs,
+        .voice-controls,
+        .btn,
+        .card-actions,
+        .study-actions {
+          display: none !important;
+        }
+
+        body {
+          background: white !important;
+          color: black !important;
+        }
+
+        .content-section {
+          border: 1px solid #ccc !important;
+        }
+
+        .card-item {
+          break-inside: avoid;
+          margin-bottom: 1rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div class="app">
+        <div class="header">
+          <h1>📚 背單字應用</h1>
+          <p>智能間隔重複學習系統</p>
+        </div>
+
+        <!-- 統計資訊 -->
+        <div class="stats">
+          <div class="stat-card">
+            <div class="stat-number">{{ totalCards }}</div>
+            <div class="stat-label">總單字數</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-number">{{ todayDue }}</div>
+            <div class="stat-label">今日複習</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-number">{{ totalReviews }}</div>
+            <div class="stat-label">總複習次數</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-number">{{ averageEase.toFixed(1) }}</div>
+            <div class="stat-label">平均難度</div>
+          </div>
+        </div>
+
+        <div
+          v-if="speechSupported"
+          class="content-section"
+          style="padding: 15px; margin-bottom: 20px"
+        >
+          <div class="voice-controls">
+            <label style="font-weight: 600; color: #333">🔊 語音設定：</label>
+            <select v-model="selectedVoice" class="voice-select">
+              <option
+                v-for="voice in availableVoices"
+                :key="voice.code"
+                :value="voice.code"
+              >
+                {{ voice.flag }} {{ voice.name }}
+              </option>
+            </select>
+
+            <!-- 語速控制 -->
+            <div class="speed-control">
+              <span style="font-size: 12px; color: #666">語速:</span>
+              <input
+                type="range"
+                v-model="speechRate"
+                min="0.5"
+                max="2.0"
+                step="0.1"
+                class="speed-slider"
+                title="拖動調整語速"
+              />
+              <span class="speed-display">{{ speechRate }}x</span>
+            </div>
+
+            <button v-if="isSpeaking" @click="stopSpeaking" class="voice-btn">
+              ⏹️ 停止
+            </button>
+          </div>
+        </div>
+
+        <!-- 導航標籤 -->
+        <div class="nav-tabs">
+          <button
+            class="nav-tab"
+            :class="{ active: currentTab === 'add' }"
+            @click="currentTab = 'add'"
+          >
+            ✏️ 新增單字
+          </button>
+          <button
+            class="nav-tab"
+            :class="{ active: currentTab === 'browse' }"
+            @click="currentTab = 'browse'"
+          >
+            📖 瀏覽單字
+          </button>
+          <button
+            class="nav-tab"
+            :class="{ active: currentTab === 'study' }"
+            @click="currentTab = 'study'"
+          >
+            🎯 開始學習
+          </button>
+          <button
+            class="nav-tab"
+            :class="{ active: currentTab === 'import' }"
+            @click="currentTab = 'import'"
+          >
+            📥 匯入匯出
+          </button>
+        </div>
+
+        <!-- 新增單字 -->
+        <div v-if="currentTab === 'add'" class="content-section">
+          <h2>{{ editingCard ? '編輯單字卡' : '新增單字卡' }}</h2>
+          <form @submit.prevent="addCard">
+            <div class="form-group">
+              <label>英文單字 *</label>
+              <input
+                type="text"
+                v-model="newCard.english"
+                class="form-input"
+                required
+              />
+            </div>
+
+            <div class="form-group">
+              <label>中文翻譯 *</label>
+              <input
+                type="text"
+                v-model="newCard.chinese"
+                class="form-input"
+                required
+              />
+            </div>
+
+            <div class="form-group">
+              <label>例句 (最多3筆)</label>
+              <div
+                v-for="(example, index) in newCard.examples"
+                :key="index"
+                style="margin-bottom: 10px"
+              >
+                <input
+                  type="text"
+                  v-model="newCard.examples[index]"
+                  :placeholder="`例句 ${index + 1}`"
+                  class="form-input"
+                />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>標籤分類</label>
+              <div class="tags-input">
+                <span v-for="tag in newCard.tags" :key="tag" class="tag">
+                  {{ tag }}
+                  <button
+                    type="button"
+                    class="tag-remove"
+                    @click="removeTag(tag)"
+                  >
+                    ×
+                  </button>
+                </span>
+                <input
+                  type="text"
+                  v-model="tagInput"
+                  @keydown.enter.prevent="addTag"
+                  @keydown.comma.prevent="addTag"
+                  placeholder="輸入標籤後按 Enter"
+                  class="tag-input"
+                />
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 10px">
+              <button type="submit" class="btn btn-primary">
+                {{ editingCard ? '更新單字卡' : '新增單字卡' }}
+              </button>
+              <button
+                v-if="editingCard"
+                type="button"
+                @click="cancelEdit"
+                class="btn btn-secondary"
+              >
+                取消編輯
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- 瀏覽單字 -->
+        <div v-if="currentTab === 'browse'" class="content-section">
+          <h2>瀏覽單字</h2>
+
+          <div class="search-filters">
+            <div>
+              <input
+                type="text"
+                v-model="searchQuery"
+                placeholder="搜尋單字、翻譯或例句..."
+                class="form-input"
+              />
+            </div>
+            <div>
+              <select v-model="selectedTag" class="form-select">
+                <option value="">所有標籤</option>
+                <option v-for="tag in allTags" :key="tag" :value="tag">
+                  {{ tag }}
+                </option>
+              </select>
+            </div>
+            <div>
+              <select v-model="pageSize" class="form-select">
+                <option :value="10">每頁 10 筆</option>
+                <option :value="20">每頁 20 筆</option>
+                <option :value="30">每頁 30 筆</option>
+                <option :value="50">每頁 50 筆</option>
+              </select>
+            </div>
+          </div>
+
+          <div v-if="filteredCards.length === 0" class="no-cards">
+            <h3>沒有找到符合條件的單字</h3>
+            <p>試試調整搜尋條件或新增一些單字吧！</p>
+          </div>
+
+          <div v-else class="card-list">
+            <div
+              v-for="card in paginatedCards"
+              :key="card.id"
+              class="card-item"
+            >
+              <div class="card-header">
+                <div class="card-word">{{ card.english }}</div>
+                <div class="voice-controls-inline">
+                  <button
+                    @click="speakText(card.english)"
+                    :disabled="!speechSupported || isSpeaking"
+                    :class="['voice-btn', 'voice-btn-sm', { speaking: isSpeaking }]"
+                  >
+                    {{ isSpeaking ? '🔊' : '🔈' }}
+                  </button>
+                </div>
+              </div>
+              <div class="card-translation">{{ card.chinese }}</div>
+              <div v-if="card.examples.some(ex => ex)" class="card-examples">
+                <div
+                  v-for="example in card.examples.filter(ex => ex)"
+                  :key="example"
+                  class="card-example"
+                >
+                  {{ example }}
+                  <div class="voice-controls-inline">
+                    <button
+                      @click="speakText(example)"
+                      :disabled="!speechSupported || isSpeaking"
+                      :class="['voice-btn', 'voice-btn-sm', { speaking: isSpeaking }]"
+                    >
+                      {{ isSpeaking ? '🔊' : '🔈' }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div v-if="card.tags.length > 0" class="card-tags">
+                <span v-for="tag in card.tags" :key="tag" class="card-tag"
+                  >{{ tag }}</span
+                >
+              </div>
+
+              <div class="card-actions">
+                <button @click="editCard(card)" class="btn btn-secondary">
+                  編輯
+                </button>
+                <button @click="deleteCard(card.id)" class="btn btn-danger">
+                  刪除
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 分頁 -->
+          <div v-if="totalPages > 1" class="pagination">
+            <button @click="currentPage = 1" :disabled="currentPage === 1">
+              第一頁
+            </button>
+            <button @click="currentPage--" :disabled="currentPage === 1">
+              上一頁
+            </button>
+            <span>第 {{ currentPage }} 頁，共 {{ totalPages }} 頁</span>
+            <button
+              @click="currentPage++"
+              :disabled="currentPage === totalPages"
+            >
+              下一頁
+            </button>
+            <button
+              @click="currentPage = totalPages"
+              :disabled="currentPage === totalPages"
+            >
+              最後頁
+            </button>
+          </div>
+        </div>
+
+        <!-- 學習模式 -->
+        <div v-if="currentTab === 'study'" class="content-section">
+          <div v-if="todayDue === 0" class="no-cards">
+            <h3>🎉 太棒了！</h3>
+            <p>今天沒有需要複習的單字了！</p>
+          </div>
+
+          <div v-else-if="!currentStudyCard" class="no-cards">
+            <h3>準備開始學習</h3>
+            <p>今天有 {{ todayDue }} 張卡片需要複習</p>
+            <button @click="startStudySession" class="btn btn-primary">
+              開始學習
+            </button>
+          </div>
+
+          <div v-else class="study-card">
+            <div class="show-translation-toggle">
+              <label>
+                顯示翻譯及例句
+                <label class="toggle-switch">
+                  <input type="checkbox" v-model="showTranslation" />
+                  <span class="slider"></span>
+                </label>
+              </label>
+            </div>
+
+            <div class="study-word">
+              {{ currentStudyCard.english }}
+              <div class="voice-controls-inline">
+                <button
+                  @click="speakText(currentStudyCard.english)"
+                  :disabled="!speechSupported || isSpeaking"
+                  :class="['voice-btn', 'voice-btn-sm', { speaking: isSpeaking }]"
+                >
+                  {{ isSpeaking ? '🔊' : '🔈' }}
+                </button>
+              </div>
+            </div>
+
+            <div v-if="showTranslation" class="study-translation">
+              {{ currentStudyCard.chinese }}
+            </div>
+
+            <div
+              v-if="currentStudyCard.examples.some(ex => ex) && showTranslation"
+              class="study-examples"
+            >
+              <div
+                v-for="example in currentStudyCard.examples.filter(ex => ex)"
+                :key="example"
+                class="study-example"
+              >
+                {{ example }}
+                <div class="voice-controls-inline">
+                  <button
+                    @click="speakText(example)"
+                    :disabled="!speechSupported || isSpeaking"
+                    :class="['voice-btn', 'voice-btn-sm', { speaking: isSpeaking }]"
+                  >
+                    {{ isSpeaking ? '🔊' : '🔈' }}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="study-actions">
+              <button @click="reviewCard(0)" class="study-btn btn-again">
+                😵 完全忘了
+              </button>
+              <button @click="reviewCard(1)" class="study-btn btn-hard">
+                😰 勉強想起
+              </button>
+              <button @click="reviewCard(2)" class="study-btn btn-good">
+                😊 記得
+              </button>
+              <button @click="reviewCard(3)" class="study-btn btn-easy">
+                😎 非常熟悉
+              </button>
+            </div>
+
+            <div style="margin-top: 20px; color: #666">
+              剩餘：{{ studyCards.length }} 張卡片
+            </div>
+          </div>
+        </div>
+
+        <!-- 匯入匯出 -->
+        <div v-if="currentTab === 'import'" class="content-section">
+          <h2>匯入匯出</h2>
+
+          <div style="margin-bottom: 30px">
+            <h3>匯出資料</h3>
+            <p>
+              將所有單字卡匯出為 CSV 格式，可在 Excel 或 Google Sheets 中編輯。
+            </p>
+            <button @click="exportCards" class="btn btn-success">
+              匯出 CSV
+            </button>
+          </div>
+
+          <div>
+            <h3>匯入資料</h3>
+            <p>上傳 CSV 檔案來批量新增單字卡。</p>
+            <label for="csvFile" class="file-label"> 選擇 CSV 檔案 </label>
+            <input
+              type="file"
+              id="csvFile"
+              accept=".csv"
+              @change="handleFileUpload"
+              class="file-input"
+            />
+
+            <div v-if="importPreview.length > 0" style="margin-top: 20px">
+              <h4>預覽匯入資料 (前5筆)</h4>
+              <div class="card-list">
+                <div
+                  v-for="(card, index) in importPreview.slice(0, 5)"
+                  :key="index"
+                  class="card-item"
+                >
+                  <div class="card-word">{{ card.english }}</div>
+                  <div class="card-translation">{{ card.chinese }}</div>
+                  <div v-if="card.tags.length > 0" class="card-tags">
+                    <span v-for="tag in card.tags" :key="tag" class="card-tag"
+                      >{{ tag }}</span
+                    >
+                  </div>
+                </div>
+              </div>
+
+              <div style="margin-top: 20px">
+                <button @click="confirmImport" class="btn btn-primary">
+                  ✅ 確認匯入 ({{ importPreview.length }} 筆)
+                </button>
+                <button @click="cancelImport" class="btn btn-secondary">
+                  ❌ 取消
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script type="module">
+      import { openDB } from "https://cdn.jsdelivr.net/npm/idb@7/+esm";
+      const { createApp, reactive, computed, onMounted, ref } = Vue;
+      createApp({
+        setup() {
+          // 狀態管理
+          const currentTab = ref("add");
+          const cards = ref([]);
+          const newCard = reactive({
+            english: "",
+            chinese: "",
+            examples: ["", "", ""],
+            tags: [],
+          });
+          const tagInput = ref("");
+          const searchQuery = ref("");
+          const selectedTag = ref("");
+          const pageSize = ref(30);
+          const currentPage = ref(1);
+          const studyCards = ref([]);
+          const currentStudyCard = ref(null);
+          const showTranslation = ref(false);
+          const importPreview = ref([]);
+          const editingCard = ref(null);
+
+          // 語音功能相關狀態
+          const speechSupported = ref(false);
+          const isSpeaking = ref(false);
+          const selectedVoice = ref("en-US");
+          const speechRate = ref(0.9); // 預設語速
+          const availableVoices = ref([
+            { code: "en-US", name: "美式英語", flag: "🇺🇸" },
+            { code: "en-GB", name: "英式英語", flag: "🇬🇧" },
+            { code: "en-AU", name: "澳洲英語", flag: "🇦🇺" },
+            { code: "en-CA", name: "加拿大英語", flag: "🇨🇦" },
+          ]);
+
+          // IndexedDB 設置
+          let db;
+
+          const initDB = async () => {
+            db = await openDB("flashcards", 1, {
+              upgrade(db) {
+                if (!db.objectStoreNames.contains("cards")) {
+                  const store = db.createObjectStore("cards", {
+                    keyPath: "id",
+                    autoIncrement: true,
+                  });
+                  store.createIndex("dueDate", "dueDate");
+                  store.createIndex("createdAt", "createdAt");
+                }
+              },
+            });
+            await loadCards();
+          };
+
+          // SM-2 演算法實作
+          const calculateSM2 = (easeFactor, repetitions, quality) => {
+            let newEaseFactor = easeFactor;
+            let newRepetitions = repetitions;
+            let interval = 1;
+
+            if (quality >= 3) {
+              if (repetitions === 0) {
+                interval = 1;
+              } else if (repetitions === 1) {
+                interval = 6;
+              } else {
+                interval = Math.round(repetitions * easeFactor);
+              }
+              newRepetitions = repetitions + 1;
+            } else {
+              newRepetitions = 0;
+              interval = 1;
+            }
+
+            newEaseFactor =
+              easeFactor +
+              (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
+            if (newEaseFactor < 1.3) newEaseFactor = 1.3;
+
+            return {
+              easeFactor: newEaseFactor,
+              repetitions: newRepetitions,
+              interval: interval,
+            };
+          };
+
+          // 資料庫操作
+          const saveCard = async (card) => {
+            const pureCard = JSON.parse(JSON.stringify(card)); // 確保是純物件
+            return await db.put("cards", pureCard);
+          };
+
+          const loadCards = async () => {
+            const allCards = await db.getAll("cards");
+            cards.value = allCards.sort(
+              (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+            );
+          };
+
+          const deleteCardFromDB = async (id) => {
+            await db.delete("cards", id);
+            await loadCards();
+          };
+
+          // 新增一個輔助函數來取得台灣時間的日期字串
+          const getTaiwanDate = (date = new Date()) => {
+            return new Date(date.getTime() + 8 * 60 * 60 * 1000)
+              .toISOString()
+              .split("T")[0];
+          };
+
+          // 新增單字卡
+          const addCard = async () => {
+            const now = new Date();
+            const taiwanNow = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+
+            if (editingCard.value) {
+              // 編輯模式：更新現有卡片
+              const updatedCard = {
+                ...editingCard.value, // 保持原有資料
+                english: newCard.english.trim(),
+                chinese: newCard.chinese.trim(),
+                examples: newCard.examples
+                  .map((ex) => ex.trim())
+                  .filter((ex) => ex),
+                tags: [...newCard.tags],
+                updatedAt: taiwanNow.toISOString(),
+              };
+
+              await saveCard(updatedCard);
+              editingCard.value = null; // 清除編輯狀態
+              alert("單字卡更新成功！");
+            } else {
+              // 新增模式：建立新卡片
+              const card = {
+                english: newCard.english.trim(),
+                chinese: newCard.chinese.trim(),
+                examples: newCard.examples
+                  .map((ex) => ex.trim())
+                  .filter((ex) => ex),
+                tags: [...newCard.tags],
+                easeFactor: 2.5,
+                interval: 1,
+                repetitions: 0,
+                dueDate: getTaiwanDate(now),
+                lastReview: null,
+                reviewCount: 0,
+                createdAt: taiwanNow.toISOString(),
+                updatedAt: taiwanNow.toISOString(),
+              };
+
+              await saveCard(card);
+              alert("單字卡新增成功！");
+            }
+
+            await loadCards();
+
+            // 清空表單
+            newCard.english = "";
+            newCard.chinese = "";
+            newCard.examples = ["", "", ""];
+            newCard.tags = [];
+            tagInput.value = "";
+          };
+
+          // 取消編輯
+          const cancelEdit = () => {
+            editingCard.value = null;
+            // 清空表單
+            newCard.english = "";
+            newCard.chinese = "";
+            newCard.examples = ["", "", ""];
+            newCard.tags = [];
+            tagInput.value = "";
+          };
+
+          // 標籤管理
+          const addTag = () => {
+            const tag = tagInput.value.trim();
+            if (tag && !newCard.tags.includes(tag)) {
+              newCard.tags.push(tag);
+              tagInput.value = "";
+            }
+          };
+
+          const removeTag = (tag) => {
+            const index = newCard.tags.indexOf(tag);
+            if (index > -1) {
+              newCard.tags.splice(index, 1);
+            }
+          };
+
+          // 編輯和刪除
+          const editCard = (card) => {
+            editingCard.value = { ...card }; // 儲存原始卡片資料
+            newCard.english = card.english;
+            newCard.chinese = card.chinese;
+            newCard.examples = [...card.examples, "", "", ""].slice(0, 3);
+            newCard.tags = [...card.tags];
+            currentTab.value = "add";
+
+            // 刪除原卡片
+            // deleteCardFromDB(card.id);
+          };
+
+          const deleteCard = async (id) => {
+            if (confirm("確定要刪除這張單字卡嗎？")) {
+              await deleteCardFromDB(id);
+            }
+          };
+
+          // 計算屬性
+          const allTags = computed(() => {
+            const tags = new Set();
+            cards.value.forEach((card) => {
+              card.tags.forEach((tag) => tags.add(tag));
+            });
+            return Array.from(tags).sort();
+          });
+
+          const filteredCards = computed(() => {
+            let filtered = cards.value;
+
+            if (searchQuery.value) {
+              const query = searchQuery.value.toLowerCase();
+              filtered = filtered.filter(
+                (card) =>
+                  card.english.toLowerCase().includes(query) ||
+                  card.chinese.toLowerCase().includes(query) ||
+                  card.examples.some((ex) =>
+                    ex.toLowerCase().includes(query)
+                  ) ||
+                  card.tags.some((tag) => tag.toLowerCase().includes(query))
+              );
+            }
+
+            if (selectedTag.value) {
+              filtered = filtered.filter((card) =>
+                card.tags.includes(selectedTag.value)
+              );
+            }
+
+            return filtered;
+          });
+
+          const totalPages = computed(() => {
+            return Math.ceil(filteredCards.value.length / pageSize.value);
+          });
+
+          const paginatedCards = computed(() => {
+            const start = (currentPage.value - 1) * pageSize.value;
+            const end = start + pageSize.value;
+            return filteredCards.value.slice(start, end);
+          });
+
+          // 統計數據
+          const totalCards = computed(() => cards.value.length);
+
+          const todayDue = computed(() => {
+            const today = getTaiwanDate();
+            return cards.value.filter((card) => card.dueDate <= today).length;
+          });
+
+          const totalReviews = computed(() => {
+            return cards.value.reduce((sum, card) => sum + card.reviewCount, 0);
+          });
+
+          const averageEase = computed(() => {
+            if (cards.value.length === 0) return 0;
+            const sum = cards.value.reduce(
+              (sum, card) => sum + card.easeFactor,
+              0
+            );
+            return sum / cards.value.length;
+          });
+
+          // 學習功能
+          const startStudySession = () => {
+            const today = getTaiwanDate();
+            studyCards.value = cards.value.filter(
+              (card) => card.dueDate <= today
+            );
+
+            if (studyCards.value.length > 0) {
+              currentStudyCard.value = studyCards.value[0];
+              showTranslation.value = false;
+            }
+          };
+
+          const reviewCard = async (quality) => {
+            if (!currentStudyCard.value) return;
+
+            const card = currentStudyCard.value;
+            const sm2Result = calculateSM2(
+              card.easeFactor,
+              card.repetitions,
+              quality
+            );
+
+            // 計算下次複習日期
+            const nextReviewDate = new Date();
+            nextReviewDate.setDate(
+              nextReviewDate.getDate() + sm2Result.interval
+            );
+
+            // 更新卡片資料
+            const updatedCard = {
+              ...card,
+              easeFactor: sm2Result.easeFactor,
+              interval: sm2Result.interval,
+              repetitions: sm2Result.repetitions,
+              dueDate: getTaiwanDate(nextReviewDate),
+              lastReview: new Date(
+                Date.now() + 8 * 60 * 60 * 1000
+              ).toISOString(),
+              reviewCount: card.reviewCount + 1,
+              updatedAt: new Date(
+                Date.now() + 8 * 60 * 60 * 1000
+              ).toISOString(),
+            };
+
+            await saveCard(updatedCard);
+            await loadCards();
+
+            // 移到下一張卡片
+            studyCards.value.shift();
+            if (studyCards.value.length > 0) {
+              currentStudyCard.value = studyCards.value[0];
+              showTranslation.value = false;
+            } else {
+              currentStudyCard.value = null;
+              alert("🎉 恭喜完成今日複習！");
+            }
+          };
+
+          // CSV 匯出
+          const exportCards = () => {
+            if (cards.value.length === 0) {
+              alert("沒有資料可以匯出");
+              return;
+            }
+
+            const csvData = cards.value.map((card) => ({
+              id: card.id,
+              english: card.english,
+              chinese: card.chinese,
+              tags: card.tags.join(","),
+              example1: card.examples[0] || "",
+              example2: card.examples[1] || "",
+              example3: card.examples[2] || "",
+              easeFactor: card.easeFactor,
+              interval: card.interval,
+              repetitions: card.repetitions,
+              dueDate: card.dueDate,
+              lastReview: card.lastReview || "",
+              reviewCount: card.reviewCount,
+              createdAt: card.createdAt,
+              updatedAt: card.updatedAt,
+            }));
+
+            const csv = Papa.unparse(csvData);
+            const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", `flashcards_${getTaiwanDate()}.csv`);
+            link.style.visibility = "hidden";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          };
+
+          // CSV 匯入
+          const handleFileUpload = (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const taiwanNow = new Date(Date.now() + 8 * 60 * 60 * 1000);
+
+            Papa.parse(file, {
+              header: true,
+              complete: (results) => {
+                const parsedCards = results.data
+                  .filter((row) => row.english && row.chinese)
+                  .map((row) => ({
+                    english: row.english.trim(),
+                    chinese: row.chinese.trim(),
+                    examples: [
+                      row.example1 || "",
+                      row.example2 || "",
+                      row.example3 || "",
+                    ].filter((ex) => ex),
+                    tags: row.tags
+                      ? row.tags
+                          .split(",")
+                          .map((tag) => tag.trim())
+                          .filter((tag) => tag)
+                      : [],
+                    easeFactor: parseFloat(row.easeFactor) || 2.5,
+                    interval: parseInt(row.interval) || 1,
+                    repetitions: parseInt(row.repetitions) || 0,
+                    dueDate: row.dueDate || getTaiwanDate(),
+                    lastReview: row.lastReview || null,
+                    reviewCount: parseInt(row.reviewCount) || 0,
+                    createdAt: row.createdAt || taiwanNow.toISOString(),
+                    updatedAt: taiwanNow.toISOString(),
+                  }));
+
+                importPreview.value = parsedCards;
+              },
+              error: (error) => {
+                alert("檔案解析失敗：" + error.message);
+              },
+            });
+          };
+
+          const confirmImport = async () => {
+            if (importPreview.value.length === 0) return;
+
+            let importCount = 0;
+            for (const card of importPreview.value) {
+              // 檢查是否有重複的單字
+              const existingCard = cards.value.find(
+                (c) => c.english.toLowerCase() === card.english.toLowerCase()
+              );
+
+              if (!existingCard) {
+                await saveCard(card);
+                importCount++;
+              }
+            }
+
+            await loadCards();
+            importPreview.value = [];
+
+            // 清除檔案輸入
+            const fileInput = document.getElementById("csvFile");
+            if (fileInput) fileInput.value = "";
+
+            alert(`成功匯入 ${importCount} 張單字卡！`);
+          };
+
+          const cancelImport = () => {
+            importPreview.value = [];
+            // 清除檔案輸入
+            const fileInput = document.getElementById("csvFile");
+            if (fileInput) fileInput.value = "";
+          };
+
+          // 檢查語音合成支援
+          const checkSpeechSupport = () => {
+            speechSupported.value = "speechSynthesis" in window;
+            if (speechSupported.value) {
+              // 設置預設語音
+              selectedVoice.value = "en-US";
+            }
+          };
+
+          // 語音朗讀功能
+          const speakText = (text) => {
+            if (!speechSupported.value || !text.trim()) return;
+
+            // 停止當前播放
+            window.speechSynthesis.cancel();
+
+            const utterance = new SpeechSynthesisUtterance(text);
+
+            // 設置語音參數
+            utterance.lang = selectedVoice.value || "en-US";
+            utterance.rate = speechRate.value;
+            utterance.pitch = 1.0;
+            utterance.volume = 1.0;
+
+            // 嘗試找到對應的語音
+            const voices = window.speechSynthesis.getVoices();
+            const preferredVoice = voices.find(
+              (voice) =>
+                voice.lang.startsWith(selectedVoice.value) ||
+                voice.lang.replace("_", "-") === selectedVoice.value
+            );
+
+            if (preferredVoice) {
+              utterance.voice = preferredVoice;
+            }
+
+            // 事件監聽
+            utterance.onstart = () => {
+              isSpeaking.value = true;
+            };
+
+            utterance.onend = () => {
+              isSpeaking.value = false;
+            };
+
+            utterance.onerror = (event) => {
+              console.error("語音播放錯誤:", event.error);
+              isSpeaking.value = false;
+            };
+
+            // 開始播放
+            window.speechSynthesis.speak(utterance);
+          };
+
+          // 停止語音播放
+          const stopSpeaking = () => {
+            if (speechSupported.value) {
+              window.speechSynthesis.cancel();
+              isSpeaking.value = false;
+            }
+          };
+
+          // 初始化
+          onMounted(() => {
+            initDB();
+            // 在組件掛載時檢查語音支援
+            checkSpeechSupport();
+
+            // 等待語音列表載入
+            if (speechSupported.value) {
+              const loadVoices = () => {
+                const voices = window.speechSynthesis.getVoices();
+                if (voices.length > 0) {
+                  // 可以在這裡進一步過濾可用的語音
+                  // console.log(
+                  //   "可用語音:",
+                  //   voices.filter((v) => v.lang.startsWith("en"))
+                  // );
+                }
+              };
+
+              // 語音列表可能需要時間載入
+              window.speechSynthesis.onvoiceschanged = loadVoices;
+              loadVoices();
+            }
+          });
+
+          return {
+            currentTab,
+            cards,
+            newCard,
+            tagInput,
+            searchQuery,
+            selectedTag,
+            pageSize,
+            currentPage,
+            studyCards,
+            currentStudyCard,
+            showTranslation,
+            importPreview,
+            editingCard,
+            allTags,
+            filteredCards,
+            totalPages,
+            paginatedCards,
+            totalCards,
+            todayDue,
+            totalReviews,
+            averageEase,
+            speechSupported,
+            isSpeaking,
+            speechRate,
+            selectedVoice,
+            availableVoices,
+            addCard,
+            addTag,
+            removeTag,
+            editCard,
+            cancelEdit,
+            deleteCard,
+            startStudySession,
+            reviewCard,
+            exportCards,
+            handleFileUpload,
+            confirmImport,
+            cancelImport,
+            speakText,
+            stopSpeaking,
+          };
+        },
+      }).mount("#app");
+    </script>
+  </body>
+</html>
